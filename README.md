@@ -3,7 +3,7 @@
 **Original Completion Date:** April 14, 2004  
 **Modernization Release:** 2026 (PHP 8.3+ REST API • MySQL 8 InnoDB • React 19 + TypeScript • PixiJS v8 WebGPU)
 
-Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contains the **2026 Modernized Architecture** of the historical 2004 DefMan bug and fault cost tracking system: a complete full-stack migration from the original 2004 archival codebase (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions) into a decoupled **PHP 8.3+ PDO REST API**, a **MySQL 8.0+ InnoDB Schema**, a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
+Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contains the **2026 Modernized Architecture** of the historical 2004 DefMan bug and fault cost tracking system: a complete full-stack migration from the [original 2004 archival codebase (`defman-2004-archive`)](https://github.com/lassesali/defman-2004-archive) (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions) into a decoupled **PHP 8.3+ PDO REST API**, a **MySQL 8.0+ InnoDB Schema**, a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
 
 ---
 
@@ -134,44 +134,19 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 
 ---
 
-## 🕰️ Historical Context (2004 Archival Codebase)
-This project was originally developed and hosted in 2004 (partially at the University of Kuopio, Finland, as indicated by legacy URLs in the code). It demonstrates the standard web technologies and coding paradigms of the era:
-* **HTML 4.01 Transitional** with `<table>`-based layouts.
-* **Legacy PHP** utilizing `<?` short open tags.
-* **Direct MySQL Database Integration** using the now-deprecated `mysql_*` functions.
-
 ## ✨ Features
-DefMan was designed to track the full lifecycle of software bugs, from reporting to resolution and cost analysis.
+DefMan tracks the full lifecycle of software bugs, from reporting to resolution and cost analysis:
 
 * **Role-Based Access Control (RBAC):** Four distinct user levels:
     * *Public (Level 1):* Can submit general bug reports.
     * *Customer (Level 2):* Can log in and track their submitted issues.
     * *Analyzer (Level 3):* Developers who analyze defects, propose fixes, and track resolution metrics.
     * *Admin (Level 4):* Full system access, including user approval and product management.
-* **Defect Analysis & Fix Tracking:** Classifies bugs based on IEEE (1992) software fault types (Logic, Computational, Interface, etc.). Tracks the effort (hours) and monetary cost of fixes.
-* **User Management:** Features account registration, admin approval workflows, user settings, and password recovery.
-* **Custom Reporting:** Advanced sorting and filtering of issues by priority, status, severity, and product.
+* **Defect Analysis & Fix Tracking:** Classifies bugs based on IEEE (1992) software fault types (Logic, Computational, Interface, etc.) and tracks fix effort (hours) and monetary cost (€ EUR).
+* **User Management:** Account registration, admin approval workflows, user profile settings, and password recovery.
+* **Custom Reporting:** Multi-column sorting and filtering of issues by priority, status, severity, and product.
 
-## 🛠️ Technology Stack (2004 Era)
-* **Backend:** PHP (Requires PHP 4 or 5)
-* **Database:** MySQL
-* **Frontend:** HTML 4.01, CSS, Vanilla JavaScript
+---
 
-## ⚠️ Running the 2004 Archival Code Today (Disclaimer)
-**Do not run the unmigrated 2004 legacy PHP files on a modern production server.** Because the original 2004 archive relies on deprecated practices, it is incompatible with modern PHP (PHP 7.0+). Specifically:
-1.  **Deprecated Database Functions:** It uses `mysql_connect()` and `mysql_query()`, which were removed in PHP 7.0. Modern environments require `mysqli` or `PDO` (provided in `backend/`).
-2.  **Short Open Tags:** The 2004 code relies heavily on `<?` instead of `<?php`.
-3.  **Security:** The 2004 application predates modern web security frameworks and does not use prepared statements, making it vulnerable to SQL Injection (SQLi) and Cross-Site Scripting (XSS). Use this 2026 modernized implementation (`backend/`, `database/`, `frontend/`) for all modern deployments.
-
-If you wish to run the 2004 archive locally for nostalgic or educational purposes, you will need to configure a legacy environment (e.g., an old version of XAMPP running PHP 5.4 or older, with `short_open_tag = On` enabled in your `php.ini`). Alternatively, you can use **Docker** with the image `plutonianbe/php54-apache:latest` to easily spin up a compatible environment.
-
-## Application screenshots ##
-
-<img width="622" height="220" alt="image" src="https://github.com/user-attachments/assets/8894b50e-0d86-4a44-9fac-682569dec756" />
-
-<img width="1824" height="2314" alt="image" src="https://github.com/user-attachments/assets/66aa6096-1d14-4a72-a5b9-0761b32b8163" />
-
-<img width="1920" height="2222" alt="image" src="https://github.com/user-attachments/assets/420d75ab-d0b3-41a4-8de9-a9091a9932f4" />
-
-## 📄 License
-This project is open-sourced for archival and educational purposes.
+## 🕰️ Historical Context
+Originally completed on April 14, 2004 (at the University of Kuopio, Finland) using PHP 4/5 (`mysql_*` functions and `<?` short tags), MySQL `MyISAM`, and HTML 4.01 `<table>` layouts, DefMan has been fully re-architected in 2026 into a modern PHP 8.3+ PDO REST API, MySQL 8 InnoDB schema, and React 19 + PixiJS v8 WebGPU frontend while preserving all original domain logic, RBAC levels, and IEEE (1992) fault classification workflows. The unmigrated 2004 version is preserved in the [`lassesali/defman-2004-archive`](https://github.com/lassesali/defman-2004-archive) repository.
