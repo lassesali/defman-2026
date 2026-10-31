@@ -1,4 +1,4 @@
-# DefMan (Defect Manager) — 2004 Archival Project & 2026 Full-Stack Modernization
+# DefMan (Defect Manager) — 2026 Full-Stack Modernization
 
 **Original Completion Date:** April 14, 2004  
 **Modernization Release:** 2026 (PHP 8.3+ REST API • MySQL 8 InnoDB • React 19 + TypeScript • PixiJS v8 WebGPU)
