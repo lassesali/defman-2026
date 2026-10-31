@@ -3,64 +3,63 @@
 **Original Completion Date:** April 14, 2004  
 **Modernization Release:** 2026 (PHP 8.3+ REST API • MySQL 8 InnoDB • React 19 + TypeScript • PixiJS v8 WebGPU)
 
-Welcome to **DefMan (Defect Manager)**! This repository contains both:
-1. **The Historical 2004 Archive (`/src/*.php`, `/src/install/*`):** Preserved in its original 2004 form (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions).
-2. **The 2026 Modernized Architecture (`/src/modern/`):** A complete full-stack migration into a decoupled **PHP 8.3+ PDO REST API**, a **MySQL 8.0+ InnoDB Schema**, a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
+Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contains the **2026 Modernized Architecture** of the historical 2004 DefMan bug and fault cost tracking system: a complete full-stack migration from the original 2004 archival codebase (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions) into a decoupled **PHP 8.3+ PDO REST API**, a **MySQL 8.0+ InnoDB Schema**, a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
 
 ---
 
-## 🚀 2026 Modernization Architecture (`/src/modern/`)
+## 🚀 2026 Modernization Architecture
 
 ### Directory Structure
 
 ```text
-src/
-├── modern/
-│   ├── database/
-│   │   └── schema.sql                           # MySQL 8.0+ InnoDB DDL (utf8mb4_unicode_ci, Foreign Keys, Indexes)
-│   ├── backend/
-│   │   ├── public/
-│   │   │   └── index.php                        # PHP 8.3 REST API Front Controller & Router
-│   │   └── src/
-│   │       ├── Database/
-│   │       │   └── DatabaseSeeder.php           # PDO Seeder (Admin/System, Analyzer, Customer & IEEE 1992 defects)
-│   │       ├── Domain/Enum/
-│   │       │   ├── IeeeFaultType.php            # Native PHP 8.3 Backed Enum for IEEE (1992) Fault Classifications
-│   │       │   └── DomainEnums.php              # UserLevel, DefectSeverity, DefectPriority, DefectStatus, OriginPhase
-│   │       ├── Infrastructure/Database/
-│   │       │   └── Database.php                 # Strict-typed PDO Singleton (ERRMODE_EXCEPTION, prepared statements)
-│   │       ├── Repository/
-│   │       │   ├── UserRepository.php           # Argon2id auth, random_bytes(32) sessions & password recovery
-│   │       │   ├── ProductRepository.php        # Product catalog CRUD & defect counts
-│   │       │   ├── DefectRepository.php         # Multi-column sorting, filtering & deleted-user preservation
-│   │       │   └── AnalysisRepository.php       # IEEE 1992 triage, lead-time delta metrics, effort (h) & EUR cost
-│   │       └── Http/
-│   │           ├── Middleware/
-│   │           │   └── RbacMiddleware.php       # Enforces Level 1 (Public) to Level 4 (Admin) RBAC
-│   │           └── Controller/
-│   │               ├── AuthController.php       # Login, Logout, User Application, Password Recovery
-│   │               ├── UserController.php       # Admin Approval Queue, Role Assignment, User Profile Settings
-│   │               ├── DefectController.php     # Public/Customer Reporting, Analyzer Queue, Triage & Resolution
-│   │               └── ProductController.php    # Product Management CRUD
-│   └── frontend/
-│       └── src/
-│           ├── types/defman.ts                  # TypeScript Enums (IeeeFaultType, UserLevel, etc.) & DTOs
-│           ├── api/client.ts                    # Typed Fetch REST Client with Bearer Token Auth
-│           ├── App.tsx                          # React 19 SPA Shell & Role-Aware Navigation
-│           └── components/
-│               ├── PublicReportForm.tsx         # Level 1 Public defect submission + inline help modal
-│               ├── CustomerReportForm.tsx       # Level 2+ Customer defect submission
-│               ├── DefectReportGrid.tsx         # Multi-column sorting/filtering grid & full-details toggle
-│               ├── DefectDetailModal.tsx        # Report inspector & editor modal
-│               ├── AnalyzerQueue.tsx            # Level 3 Analyzer triage table & 5 lead-time delta metrics
-│               ├── DefectAnalyzerWorkbench.tsx  # IEEE (1992) fault classification, origin phase & fix workbench
-│               ├── DefectResolutionForm.tsx     # Effort hours, EUR/h rate helper, fix cost & total defect cost
-│               ├── DefectTriageCanvas.tsx       # PixiJS v8 (WebGPU/WebGL) 2D interactive triage & cost canvas
-│               ├── AdminUserApproval.tsx        # Level 4 Admin user management & pending applicant approval queue
-│               ├── ProductManager.tsx           # Level 4 Admin product catalog CRUD
-│               └── UserProfileSettings.tsx      # Password, email, and personal profile settings
+.
+├── database/
+│   └── schema.sql                               # MySQL 8.0+ InnoDB DDL (utf8mb4_unicode_ci, Foreign Keys, Indexes)
+├── backend/
+│   ├── public/
+│   │   └── index.php                            # PHP 8.3 REST API Front Controller & Router
+│   └── src/
+│       ├── Database/
+│       │   └── DatabaseSeeder.php               # PDO Seeder (Admin/System, Analyzer, Customer & IEEE 1992 defects)
+│       ├── Domain/Enum/
+│       │   ├── IeeeFaultType.php                # Native PHP 8.3 Backed Enum for IEEE (1992) Fault Classifications
+│       │   └── DomainEnums.php                  # UserLevel, DefectSeverity, DefectPriority, DefectStatus, OriginPhase
+│       ├── Infrastructure/Database/
+│       │   └── Database.php                     # Strict-typed PDO Singleton (ERRMODE_EXCEPTION, prepared statements)
+│       ├── Repository/
+│       │   ├── UserRepository.php               # Argon2id auth, random_bytes(32) sessions & password recovery
+│       │   ├── ProductRepository.php            # Product catalog CRUD & defect counts
+│       │   ├── DefectRepository.php             # Multi-column sorting, filtering & deleted-user preservation
+│       │   └── AnalysisRepository.php           # IEEE 1992 triage, lead-time delta metrics, effort (h) & EUR cost
+│       └── Http/
+│           ├── Middleware/
+│           │   └── RbacMiddleware.php           # Enforces Level 1 (Public) to Level 4 (Admin) RBAC
+│           └── Controller/
+│               ├── AuthController.php           # Login, Logout, User Application, Password Recovery
+│               ├── UserController.php           # Admin Approval Queue, Role Assignment, User Profile Settings
+│               ├── DefectController.php         # Public/Customer Reporting, Analyzer Queue, Triage & Resolution
+│               └── ProductController.php        # Product Management CRUD
+├── frontend/
+│   └── src/
+│       ├── types/defman.ts                      # TypeScript Enums (IeeeFaultType, UserLevel, etc.) & DTOs
+│       ├── api/client.ts                        # Typed Fetch REST Client with Bearer Token Auth
+│       ├── App.tsx                              # React 19 SPA Shell & Role-Aware Navigation
+│       └── components/
+│           ├── PublicReportForm.tsx             # Level 1 Public defect submission + inline help modal
+│           ├── CustomerReportForm.tsx           # Level 2+ Customer defect submission
+│           ├── DefectReportGrid.tsx             # Multi-column sorting/filtering grid & full-details toggle
+│           ├── DefectDetailModal.tsx            # Report inspector & editor modal
+│           ├── AnalyzerQueue.tsx                # Level 3 Analyzer triage table & 5 lead-time delta metrics
+│           ├── DefectAnalyzerWorkbench.tsx      # IEEE (1992) fault classification, origin phase & fix workbench
+│           ├── DefectResolutionForm.tsx         # Effort hours, EUR/h rate helper, fix cost & total defect cost
+│           ├── DefectTriageCanvas.tsx           # PixiJS v8 (WebGPU/WebGL) 2D interactive triage & cost canvas
+│           ├── AdminUserApproval.tsx            # Level 4 Admin user management & pending applicant approval queue
+│           ├── ProductManager.tsx               # Level 4 Admin product catalog CRUD
+│           └── UserProfileSettings.tsx          # Password, email, and personal profile settings
 ├── DefMan-2026-Implementation-Document.pdf      # Complete exported implementation reference (PDF)
-└── DefMan-2026-Implementation-Document.txt      # Complete exported implementation reference (TXT)
+├── DefMan-2026-Implementation-Document.txt      # Complete exported implementation reference (TXT)
+├── LICENSE                                      # Project license
+└── README.md                                    # Project documentation
 ```
 
 ---
@@ -69,7 +68,7 @@ src/
 
 | Legacy 2004 File(s) | Modernized 2026 Layer | Key Upgrades |
 | :--- | :--- | :--- |
-| `install/installdb.php`, `install-part1.php`, `install-part2.php` | `modern/database/schema.sql` & `DatabaseSeeder.php` | `MyISAM` → `InnoDB`, `utf8mb4_unicode_ci`, Foreign Keys, `DECIMAL` cost columns, PDO Seeder |
+| `install/installdb.php`, `install-part1.php`, `install-part2.php` | `database/schema.sql` & `DatabaseSeeder.php` | `MyISAM` → `InnoDB`, `utf8mb4_unicode_ci`, Foreign Keys, `DECIMAL` cost columns, PDO Seeder |
 | `config.php`, `dbconnect.php`, `db.php` | `Database.php` & `*Repository.php` | Removed `<?` short tags & `mysql_*` calls; strict-typed PHP 8.3 PDO prepared statements |
 | `defecttype.txt`, `faulttypes.html` | `IeeeFaultType.php` & `types/defman.ts` | Native PHP 8.3 Backed Enum & TypeScript Enum with IEEE (1992) taxonomy & hex colors |
 | `login.php`, `logout.php`, `randompassword.php`, `form_lostpassword.php` | `AuthController.php` & `RbacMiddleware.php` | Plaintext passwords → `password_hash(..., PASSWORD_ARGON2ID)` & `random_bytes(32)` tokens |
@@ -88,7 +87,7 @@ src/
 ---
 
 ### 🎨 PixiJS v8 (WebGPU/WebGL) Visual Defect & Cost Canvas
-`<DefectTriageCanvas />` (`modern/frontend/src/components/DefectTriageCanvas.tsx`) initializes a hardware-accelerated PixiJS v8 surface (`await app.init({ preference: 'webgpu', antialias: true })`):
+`<DefectTriageCanvas />` (`frontend/src/components/DefectTriageCanvas.tsx`) initializes a hardware-accelerated PixiJS v8 surface (`await app.init({ preference: 'webgpu', antialias: true })`):
 - **IEEE (1992) Fault Type Color Coding:** Nodes are color-coded across all 10 IEEE fault classifications (`Logic`, `Computational`, `Interface`, `Data handling`, `Data`, `Documentation`, `Document quality`, `Enhancement`, `Caused by a prev. Fix`, `Other`).
 - **Severity & Priority Outer Glow Ring:** Critical and most-urgent defects render high-visibility outer rings.
 - **Effort & Cost Radius Scaling:** Node radius scales proportionally to **Fix Effort (Hours)** and **Monetary Cost (€ EUR)**.
@@ -111,24 +110,24 @@ src/
 
 1. **Provision MySQL 8 Schema & Seed Data:**
    ```bash
-   mysql -u root -p opr0413 < modern/database/schema.sql
+   mysql -u root -p opr0413 < database/schema.sql
    php -r '
-     require "modern/backend/src/Infrastructure/Database/Database.php";
-     require "modern/backend/src/Domain/Enum/IeeeFaultType.php";
-     require "modern/backend/src/Domain/Enum/DomainEnums.php";
-     require "modern/backend/src/Database/DatabaseSeeder.php";
+     require "backend/src/Infrastructure/Database/Database.php";
+     require "backend/src/Domain/Enum/IeeeFaultType.php";
+     require "backend/src/Domain/Enum/DomainEnums.php";
+     require "backend/src/Database/DatabaseSeeder.php";
      (new DefMan\Database\DatabaseSeeder(DefMan\Infrastructure\Database\Database::getConnection()))->run();
    '
    ```
 
 2. **Start the PHP 8.3+ REST API:**
    ```bash
-   php -S localhost:8080 -t modern/backend/public
+   php -S localhost:8080 -t backend/public
    ```
 
 3. **Start the React 19 + PixiJS v8 WebGPU SPA:**
    ```bash
-   cd modern/frontend
+   cd frontend
    npm install react react-dom pixi.js
    npm run dev
    ```
@@ -159,10 +158,10 @@ DefMan was designed to track the full lifecycle of software bugs, from reporting
 * **Frontend:** HTML 4.01, CSS, Vanilla JavaScript
 
 ## ⚠️ Running the 2004 Archival Code Today (Disclaimer)
-**Do not run the unmigrated 2004 root PHP files on a modern production server.** Because the root archive is preserved as it was written in 2004, it relies on deprecated practices that are incompatible with modern PHP (PHP 7.0+). Specifically:
-1.  **Deprecated Database Functions:** It uses `mysql_connect()` and `mysql_query()`, which were removed in PHP 7.0. Modern environments require `mysqli` or `PDO` (provided in `/src/modern/backend/`).
+**Do not run the unmigrated 2004 legacy PHP files on a modern production server.** Because the original 2004 archive relies on deprecated practices, it is incompatible with modern PHP (PHP 7.0+). Specifically:
+1.  **Deprecated Database Functions:** It uses `mysql_connect()` and `mysql_query()`, which were removed in PHP 7.0. Modern environments require `mysqli` or `PDO` (provided in `backend/`).
 2.  **Short Open Tags:** The 2004 code relies heavily on `<?` instead of `<?php`.
-3.  **Security:** The 2004 application predates modern web security frameworks and does not use prepared statements, making it vulnerable to SQL Injection (SQLi) and Cross-Site Scripting (XSS). Use the `/src/modern/` implementation for all modern deployments.
+3.  **Security:** The 2004 application predates modern web security frameworks and does not use prepared statements, making it vulnerable to SQL Injection (SQLi) and Cross-Site Scripting (XSS). Use this 2026 modernized implementation (`backend/`, `database/`, `frontend/`) for all modern deployments.
 
 If you wish to run the 2004 archive locally for nostalgic or educational purposes, you will need to configure a legacy environment (e.g., an old version of XAMPP running PHP 5.4 or older, with `short_open_tag = On` enabled in your `php.ini`). Alternatively, you can use **Docker** with the image `plutonianbe/php54-apache:latest` to easily spin up a compatible environment.
 
