@@ -37,14 +37,23 @@ enum DefectSeverity: string
 }
 
 /**
- * Defect Priority from form_raport.php (m_urgent, average, l_urgent)
- * and form_analyze.php (most urgent, average, less urgent)
+ * Defect Priority normalized across `defect_reports.initial_priority` and `defect_analyses.priority`
+ * Supports 3NF DB enum ('most_urgent', 'average', 'less_urgent') as well as legacy UI values
  */
 enum DefectPriority: string
 {
     case MOST_URGENT = 'm_urgent';
     case AVERAGE     = 'average';
     case LESS_URGENT = 'l_urgent';
+
+    public function dbValue(): string
+    {
+        return match ($this) {
+            self::MOST_URGENT => 'most_urgent',
+            self::AVERAGE     => 'average',
+            self::LESS_URGENT => 'less_urgent',
+        };
+    }
 
     public function analysisLabel(): string
     {
@@ -58,9 +67,9 @@ enum DefectPriority: string
     public static function fromInput(string $input): self
     {
         return match (strtolower(trim($input))) {
-            'm_urgent', 'most urgent' => self::MOST_URGENT,
-            'l_urgent', 'less urgent' => self::LESS_URGENT,
-            default                   => self::AVERAGE,
+            'most_urgent', 'm_urgent', 'most urgent' => self::MOST_URGENT,
+            'less_urgent', 'l_urgent', 'less urgent' => self::LESS_URGENT,
+            default                                  => self::AVERAGE,
         };
     }
 }
@@ -91,16 +100,34 @@ enum PersonType: string
 
 /**
  * Defect Uniqueness (form_analyze.php)
+ * Normalized 3NF column uses ENUM('new', 'duplicate')
  */
 enum Uniqueness: string
 {
     case NEW_DEFECT        = 'New defect';
     case ALREADY_SUBMITTED = 'Already submitted';
     case CRITICAL          = 'Critical';
+
+    public function dbValue(): string
+    {
+        return match ($this) {
+            self::ALREADY_SUBMITTED => 'duplicate',
+            self::NEW_DEFECT, self::CRITICAL => 'new',
+        };
+    }
+
+    public static function fromInput(string $input): self
+    {
+        return match (strtolower(trim($input))) {
+            'duplicate', 'already submitted' => self::ALREADY_SUBMITTED,
+            'critical'                       => self::CRITICAL,
+            default                          => self::NEW_DEFECT,
+        };
+    }
 }
 
 /**
- * Lifecycle Phase in which the defect originated (form_analyze.php)
+ * Lifecycle Phase in which the defect originated (`sdlc_phases`)
  */
 enum OriginPhase: string
 {

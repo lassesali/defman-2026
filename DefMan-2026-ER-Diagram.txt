@@ -1,0 +1,119 @@
+erDiagram
+    companies |o--o{ users : "employs (0..1:N, ON DELETE SET NULL)"
+    users ||--o{ user_sessions : "has active sessions (1:N, ON DELETE CASCADE)"
+    users ||--o{ password_resets : "requests recovery tokens (1:N, ON DELETE CASCADE)"
+    users |o--o{ defect_reports : "submits reports (0..1:N, ON DELETE SET NULL)"
+    products ||--o{ defect_reports : "categorizes reports (1:N, ON DELETE RESTRICT)"
+    defect_reports ||--o| defect_analyses : "has IEEE 1044 analysis & cost (1:0..1, ON DELETE CASCADE)"
+    defect_reports |o--o{ defect_analyses : "is duplicated by (0..1:N, ON DELETE SET NULL)"
+    fault_classifications |o--o{ defect_analyses : "classifies fault (0..1:N, ON DELETE SET NULL)"
+    defect_analyses ||--o{ analysis_phases : "originated in phases (1:N, ON DELETE CASCADE)"
+    sdlc_phases ||--o{ analysis_phases : "defines SDLC phase (1:N, ON DELETE RESTRICT)"
+
+    products {
+        SMALLINT_UNSIGNED id PK "AUTO_INCREMENT"
+        VARCHAR(100) name UK "NOT NULL (uk_products_name)"
+        TIMESTAMP created_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    companies {
+        SMALLINT_UNSIGNED id PK "AUTO_INCREMENT"
+        VARCHAR(100) name UK "NOT NULL (uk_companies_name)"
+        TIMESTAMP created_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    users {
+        SMALLINT_UNSIGNED id PK "AUTO_INCREMENT"
+        VARCHAR(64) login UK "NOT NULL (uk_users_login)"
+        VARCHAR(255) password "NOT NULL (Argon2id hash)"
+        VARCHAR(255) email UK "NOT NULL (uk_users_email)"
+        TINYINT_UNSIGNED userlevel "NOT NULL DEFAULT 0 (0=Applying..4=Admin)"
+        SMALLINT_UNSIGNED company_id FK "NULL -> companies.id"
+        VARCHAR(50) phone "NULL"
+        VARCHAR(100) name "NULL"
+        TINYINT(1) activate "NOT NULL DEFAULT 0 (0=Inactive, 1=Active)"
+        TIMESTAMP created_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        TIMESTAMP updated_at "NOT NULL ON UPDATE CURRENT_TIMESTAMP"
+    }
+
+    user_sessions {
+        BIGINT_UNSIGNED id PK "AUTO_INCREMENT"
+        SMALLINT_UNSIGNED user_id FK "NOT NULL -> users.id"
+        CHAR(64) token_hash UK "NOT NULL (uk_user_sessions_token_hash)"
+        VARCHAR(45) ip_address "NULL"
+        VARCHAR(255) user_agent "NULL"
+        DATETIME expires_at "NOT NULL"
+        TIMESTAMP created_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    password_resets {
+        INT_UNSIGNED id PK "AUTO_INCREMENT"
+        SMALLINT_UNSIGNED user_id FK "NOT NULL -> users.id"
+        CHAR(64) token_hash UK "NOT NULL (uk_password_resets_token_hash)"
+        DATETIME expires_at "NOT NULL"
+        TIMESTAMP created_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+    }
+
+    sdlc_phases {
+        TINYINT_UNSIGNED id PK "AUTO_INCREMENT"
+        VARCHAR(64) name UK "NOT NULL (uk_sdlc_phases_name)"
+    }
+
+    fault_classifications {
+        SMALLINT_UNSIGNED id PK "AUTO_INCREMENT"
+        VARCHAR(100) code UK "NOT NULL (uk_fault_classifications_code)"
+        VARCHAR(255) description "NULL (IEEE 1044-1992 subcategory)"
+    }
+
+    defect_reports {
+        INT_UNSIGNED id PK "AUTO_INCREMENT"
+        SMALLINT_UNSIGNED product_id FK "NOT NULL -> products.id"
+        TEXT environment "NULL"
+        SMALLINT_UNSIGNED reporter_user_id FK "NULL -> users.id"
+        VARCHAR(100) guest_name "NULL (CHECK: reporter_user_id OR guest_name+guest_email)"
+        VARCHAR(255) guest_email "NULL"
+        DATETIME reported_at "NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        VARCHAR(255) title "NOT NULL"
+        TEXT description "NOT NULL"
+        VARCHAR(100) discovered_by "NULL"
+        ENUM person_type "NOT NULL ('Customer','Developer','Tester')"
+        DATE occurred_on "NOT NULL"
+        VARCHAR(255) location "NULL"
+        ENUM initial_severity "NOT NULL ('minor','major','critical')"
+        ENUM initial_priority "NOT NULL ('most_urgent','average','less_urgent')"
+        TEXT additional_info "NULL"
+    }
+
+    defect_analyses {
+        INT_UNSIGNED report_id PK,FK "NOT NULL -> defect_reports.id (1:1 shared PK/FK)"
+        TEXT developer_description "NULL"
+        SMALLINT_UNSIGNED classification_id FK "NULL -> fault_classifications.id"
+        DATE date_originated "NULL"
+        TEXT activity_originated "NULL"
+        VARCHAR(255) deliverable "NULL"
+        TEXT what_to_do "NULL"
+        DATE assigned_on "NULL"
+        ENUM uniqueness "NOT NULL ('new','duplicate')"
+        INT_UNSIGNED duplicate_of_report_id FK "NULL -> defect_reports.id"
+        ENUM priority "NOT NULL ('most_urgent','average','less_urgent')"
+        ENUM severity "NOT NULL ('minor','major','critical')"
+        TEXT workaround "NULL"
+        TEXT proposed_fix "NULL"
+        ENUM status "NOT NULL ('submitted','assigned','postponed','opened','fixed','resolved','closed')"
+        TEXT fix_description "NULL"
+        DATE fix_started_on "NULL"
+        DATE fix_completed_on "NULL"
+        TEXT fix_impact "NULL"
+        DECIMAL(8_2)_UNSIGNED fix_effort "NULL (hours)"
+        DECIMAL(10_2)_UNSIGNED fix_cost "NULL (EUR)"
+        TEXT resolution_description "NULL"
+        DATE resolution_completed_on "NULL"
+        DATE resolution_closed_on "NULL"
+        DECIMAL(10_2)_UNSIGNED cost_of_defect "NULL (EUR)"
+        TEXT activity_found "NULL"
+    }
+
+    analysis_phases {
+        INT_UNSIGNED report_id PK,FK "NOT NULL -> defect_analyses.report_id"
+        TINYINT_UNSIGNED phase_id PK,FK "NOT NULL -> sdlc_phases.id"
+    }

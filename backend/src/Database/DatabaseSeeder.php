@@ -14,7 +14,7 @@ use DefMan\Domain\Enum\UserLevel;
 use PDO;
 
 /**
- * PDO Database Seeder
+ * PDO Database Seeder (3NF Normalized Schema)
  * Refactored from: install/installdb.php, install/install-part2.php, helpanalyze.html, helpreport.html
  *
  * Test/Seed Account Rule:
@@ -30,7 +30,7 @@ final readonly class DatabaseSeeder
         $this->pdo->beginTransaction();
 
         try {
-            // 1. Seed Products (including historical MMF 1.5 from helpanalyze.html)
+            // 1. Seed Products (`products`)
             $products = [
                 'MMF 1.5',
                 'DefMan 2004 Core',
@@ -39,21 +39,55 @@ final readonly class DatabaseSeeder
             ];
 
             $productStmt = $this->pdo->prepare(
-                'INSERT INTO `product` (`name`) VALUES (:name)
+                'INSERT INTO `products` (`name`) VALUES (:name)
                  ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)'
             );
             foreach ($products as $productName) {
                 $productStmt->execute([':name' => $productName]);
             }
 
-            // Map product names to IDs
             $productMap = [];
-            $rows = $this->pdo->query('SELECT `id`, `name` FROM `product`')->fetchAll();
+            $rows = $this->pdo->query('SELECT `id`, `name` FROM `products`')->fetchAll();
             foreach ($rows as $row) {
                 $productMap[$row['name']] = (int) $row['id'];
             }
 
-            // 2. Seed Users with Argon2id hashes
+            // 2. Seed SDLC Phases (`sdlc_phases` — 1NF lookup table)
+            $phaseStmt = $this->pdo->prepare(
+                'INSERT INTO `sdlc_phases` (`name`) VALUES (:name)
+                 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)'
+            );
+            foreach (OriginPhase::cases() as $phaseCase) {
+                $phaseStmt->execute([':name' => $phaseCase->value]);
+            }
+
+            $phaseMap = [];
+            $phaseRows = $this->pdo->query('SELECT `id`, `name` FROM `sdlc_phases`')->fetchAll();
+            foreach ($phaseRows as $row) {
+                $phaseMap[$row['name']] = (int) $row['id'];
+            }
+
+            // 3. Seed IEEE 1044-1992 Fault Classifications (`fault_classifications` — 3NF lookup table)
+            $classificationStmt = $this->pdo->prepare(
+                'INSERT INTO `fault_classifications` (`code`, `description`)
+                 VALUES (:code, :description)
+                 ON DUPLICATE KEY UPDATE `description` = VALUES(`description`)'
+            );
+            foreach (IeeeFaultType::cases() as $faultCase) {
+                $subcategories = $faultCase->subcategories();
+                $classificationStmt->execute([
+                    ':code'        => $faultCase->value,
+                    ':description' => $subcategories[0] ?? null,
+                ]);
+            }
+
+            $classificationMap = [];
+            $classRows = $this->pdo->query('SELECT `id`, `code` FROM `fault_classifications`')->fetchAll();
+            foreach ($classRows as $row) {
+                $classificationMap[$row['code']] = (int) $row['id'];
+            }
+
+            // 4. Seed Companies (`companies` — 3NF lookup table) & Users (`users`)
             $users = [
                 [
                     'login'     => 'zuck',
@@ -64,7 +98,7 @@ final readonly class DatabaseSeeder
                     'phone'     => '+1-650-543-4800',
                     'name'      => 'Mark Zuckerberg',
                     'activate'  => 1,
-                    'logged'    => 1,
+                    'online'    => true,
                 ],
                 [
                     'login'     => 'billg',
@@ -75,7 +109,7 @@ final readonly class DatabaseSeeder
                     'phone'     => '+1-425-882-8080',
                     'name'      => 'Bill Gates',
                     'activate'  => 1,
-                    'logged'    => 0,
+                    'online'    => false,
                 ],
                 [
                     'login'     => 'julia',
@@ -86,7 +120,7 @@ final readonly class DatabaseSeeder
                     'phone'     => '+358-40-555-0103',
                     'name'      => 'Julia',
                     'activate'  => 1,
-                    'logged'    => 1,
+                    'online'    => true,
                 ],
                 [
                     'login'     => 'sabrin',
@@ -97,264 +131,292 @@ final readonly class DatabaseSeeder
                     'phone'     => '+358-40-555-0102',
                     'name'      => 'Sabrina',
                     'activate'  => 1,
-                    'logged'    => 0,
+                    'online'    => false,
                 ],
             ];
 
+            $companyStmt = $this->pdo->prepare(
+                'INSERT INTO `companies` (`name`) VALUES (:name)
+                 ON DUPLICATE KEY UPDATE `id` = LAST_INSERT_ID(`id`)'
+            );
+
             $userStmt = $this->pdo->prepare(
-                'INSERT INTO `users` (`login`, `password`, `email`, `userlevel`, `company`, `phone`, `name`, `activate`, `logged`)
-                 VALUES (:login, :password, :email, :userlevel, :company, :phone, :name, :activate, :logged)
+                'INSERT INTO `users` (`login`, `password`, `email`, `userlevel`, `company_id`, `phone`, `name`, `activate`)
+                 VALUES (:login, :password, :email, :userlevel, :company_id, :phone, :name, :activate)
                  ON DUPLICATE KEY UPDATE
-                   `userlevel` = VALUES(`userlevel`),
-                   `company`   = VALUES(`company`),
-                   `name`      = VALUES(`name`),
-                   `activate`  = VALUES(`activate`)'
+                   `id`         = LAST_INSERT_ID(`id`),
+                   `userlevel`  = VALUES(`userlevel`),
+                   `company_id` = VALUES(`company_id`),
+                   `name`       = VALUES(`name`),
+                   `activate`   = VALUES(`activate`)'
+            );
+
+            $sessionStmt = $this->pdo->prepare(
+                'INSERT IGNORE INTO `user_sessions` (`user_id`, `token_hash`, `ip_address`, `user_agent`, `expires_at`)
+                 VALUES (:user_id, :token_hash, :ip_address, :user_agent, :expires_at)'
             );
 
             foreach ($users as $u) {
+                $companyStmt->execute([':name' => $u['company']]);
+                $companyId = (int) $this->pdo->lastInsertId();
+
                 $userStmt->execute([
-                    ':login'     => $u['login'],
-                    ':password'  => $u['password'],
-                    ':email'     => $u['email'],
-                    ':userlevel' => $u['userlevel'],
-                    ':company'   => $u['company'],
-                    ':phone'     => $u['phone'],
-                    ':name'      => $u['name'],
-                    ':activate'  => $u['activate'],
-                    ':logged'    => $u['logged'],
+                    ':login'      => $u['login'],
+                    ':password'   => $u['password'],
+                    ':email'      => $u['email'],
+                    ':userlevel'  => $u['userlevel'],
+                    ':company_id' => $companyId,
+                    ':phone'      => $u['phone'],
+                    ':name'       => $u['name'],
+                    ':activate'   => $u['activate'],
                 ]);
+
+                $userId = (int) $this->pdo->lastInsertId();
+
+                if ($u['online']) {
+                    $sessionStmt->execute([
+                        ':user_id'    => $userId,
+                        ':token_hash' => hash('sha256', 'seed-session-' . $u['login']),
+                        ':ip_address' => '127.0.0.1',
+                        ':user_agent' => 'DefMan-2026-Seed-Session/1.0',
+                        ':expires_at' => (new \DateTimeImmutable('+7 days'))->format('Y-m-d H:i:s'),
+                    ]);
+                }
             }
 
             $sabrinaId = (int) $this->pdo->query(
                 "SELECT `id` FROM `users` WHERE `email` = 'sabrina@hotmail.com' LIMIT 1"
             )->fetchColumn();
 
-            // 3. Seed Sample Defects & Analyses (preserving helpanalyze.html & helpreport.html canon)
+            // 5. Seed Sample Defects & Analyses (`defect_reports`, `defect_analyses`, `analysis_phases`)
             $sampleDefects = [
                 [
-                    'Product'      => 'MMF 1.5',
-                    'product_id'   => $productMap['MMF 1.5'] ?? null,
-                    'Environment'  => 'AMD Athlon XP 2000, WinXP',
-                    'CustomerID'   => $sabrinaId,
-                    'Who'          => 'sabrin',
-                    'Contactemail' => 'sabrina@hotmail.com',
-                    'Whenreported' => '2004-04-14 14:20',
-                    'Title'        => 'PopUp Menu Crash',
-                    'Description'  => 'When adding entries into the popup menu in a certain way, the application will close without any error messages.',
-                    'Discoveredby' => 'Sabrina',
-                    'Persontype'   => PersonType::CUSTOMER->value,
-                    'Occured'      => '2004-04-14',
-                    'Location'     => 'settings form',
-                    'Severity'     => DefectSeverity::CRITICAL->value,
-                    'Priority'     => DefectPriority::MOST_URGENT->value,
-                    'Submitted'    => '2004-04-14',
-                    'Addinfo'      => 'please fix this soon',
-                    'analysis'     => [
-                        'devdesc'        => 'It seems to be happening when you drag a parent item and drop it to its children.',
-                        'classification' => IeeeFaultType::LOGIC->value,
-                        'dateoriginated' => '2004-04-16',
-                        'phase'          => implode(',', [OriginPhase::IMPLEMENTATION->value, OriginPhase::TESTING->value]),
-                        'actoriginated'  => 'Testing',
-                        'deliverable'    => 'the pop-up menu settings form',
-                        'whattodo'       => 'Prevent cyclic parent-to-child drag-and-drop in popup tree.',
-                        'submitted'      => '2004-04-14',
-                        'assigned'       => '2004-04-17',
-                        'uniqueness'     => Uniqueness::CRITICAL->value,
-                        'priority'       => DefectPriority::MOST_URGENT->analysisLabel(),
-                        'severity'       => DefectSeverity::CRITICAL->value,
-                        'workaround'     => 'Do not drag and drop.',
-                        'proposedfix'    => "Let's fix the pop-up menu module.",
-                        'status'         => DefectStatus::RESOLVED->value,
-                        'fixdesc'        => 'Fixed the pop-up menu function call.',
-                        'fixstarted'     => '2004-04-19',
-                        'fixcomplete'    => '2004-04-20',
-                        'fiximpact'      => 'MMF 1.5 settings.cpp popup.cpp',
-                        'fixeffort'      => 2.00,
-                        'fixcost'        => 60.00,
-                        'resodesc'       => 'The pop-up menu is fixed.',
-                        'resocomplete'   => '2004-04-22',
-                        'resoclosed'     => '2004-04-23',
-                        'costofdefect'   => 240.00,
-                        'actfound'       => 'sequential testing',
+                    'product_id'       => $productMap['MMF 1.5'],
+                    'environment'      => 'AMD Athlon XP 2000, WinXP',
+                    'reporter_user_id' => $sabrinaId,
+                    'guest_name'       => null,
+                    'guest_email'      => null,
+                    'reported_at'      => '2004-04-14 14:20:00',
+                    'title'            => 'PopUp Menu Crash',
+                    'description'      => 'When adding entries into the popup menu in a certain way, the application will close without any error messages.',
+                    'discovered_by'    => 'Sabrina',
+                    'person_type'      => PersonType::CUSTOMER->value,
+                    'occurred_on'      => '2004-04-14',
+                    'location'         => 'settings form',
+                    'initial_severity' => DefectSeverity::CRITICAL->value,
+                    'initial_priority' => DefectPriority::MOST_URGENT->dbValue(),
+                    'additional_info'  => 'please fix this soon',
+                    'analysis'         => [
+                        'developer_description'   => 'It seems to be happening when you drag a parent item and drop it to its children.',
+                        'classification_id'       => $classificationMap[IeeeFaultType::LOGIC->value],
+                        'date_originated'         => '2004-04-16',
+                        'phases'                  => [OriginPhase::IMPLEMENTATION->value, OriginPhase::TESTING->value],
+                        'activity_originated'     => 'Testing',
+                        'deliverable'             => 'the pop-up menu settings form',
+                        'what_to_do'              => 'Prevent cyclic parent-to-child drag-and-drop in popup tree.',
+                        'assigned_on'             => '2004-04-17',
+                        'uniqueness'              => Uniqueness::CRITICAL->dbValue(),
+                        'priority'                => DefectPriority::MOST_URGENT->dbValue(),
+                        'severity'                => DefectSeverity::CRITICAL->value,
+                        'workaround'              => 'Do not drag and drop.',
+                        'proposed_fix'            => "Let's fix the pop-up menu module.",
+                        'status'                  => DefectStatus::RESOLVED->value,
+                        'fix_description'         => 'Fixed the pop-up menu function call.',
+                        'fix_started_on'          => '2004-04-19',
+                        'fix_completed_on'        => '2004-04-20',
+                        'fix_impact'              => 'MMF 1.5 settings.cpp popup.cpp',
+                        'fix_effort'              => 2.00,
+                        'fix_cost'                => 60.00,
+                        'resolution_description'  => 'The pop-up menu is fixed.',
+                        'resolution_completed_on' => '2004-04-22',
+                        'resolution_closed_on'    => '2004-04-23',
+                        'cost_of_defect'          => 240.00,
+                        'activity_found'          => 'sequential testing',
                     ],
                 ],
                 [
-                    'Product'      => 'DefMan 2004 Core',
-                    'product_id'   => $productMap['DefMan 2004 Core'] ?? null,
-                    'Environment'  => 'Linux 2.4, Apache 1.3, PHP 4.3, MySQL 4.0',
-                    'CustomerID'   => $sabrinaId,
-                    'Who'          => 'sabrin',
-                    'Contactemail' => 'sabrina@hotmail.com',
-                    'Whenreported' => '2004-04-18 09:15',
-                    'Title'        => 'Precision Loss in EUR Effort Multiplier',
-                    'Description'  => 'Fractional effort hours get truncated when stored in smallint(6) fixeffort and fixcost columns.',
-                    'Discoveredby' => 'Julia',
-                    'Persontype'   => PersonType::DEVELOPER->value,
-                    'Occured'      => '2004-04-18',
-                    'Location'     => 'form_deffix.php',
-                    'Severity'     => DefectSeverity::MAJOR->value,
-                    'Priority'     => DefectPriority::MOST_URGENT->value,
-                    'Submitted'    => '2004-04-18',
-                    'Addinfo'      => 'Affects IEEE cost reporting accuracy.',
-                    'analysis'     => [
-                        'devdesc'        => 'Integer truncation in legacy MyISAM schema causes rounding fault.',
-                        'classification' => IeeeFaultType::COMPUTATIONAL->value,
-                        'dateoriginated' => '2004-04-10',
-                        'phase'          => OriginPhase::DESIGN->value,
-                        'actoriginated'  => 'Database schema definition',
-                        'deliverable'    => 'install/installdb.php',
-                        'whattodo'       => 'Migrate fixeffort and fixcost to DECIMAL(8,2) / DECIMAL(10,2).',
-                        'submitted'      => '2004-04-18',
-                        'assigned'       => '2004-04-19',
-                        'uniqueness'     => Uniqueness::NEW_DEFECT->value,
-                        'priority'       => DefectPriority::MOST_URGENT->analysisLabel(),
-                        'severity'       => DefectSeverity::MAJOR->value,
-                        'workaround'     => 'Round effort to nearest whole hour.',
-                        'proposedfix'    => 'Alter table columns to DECIMAL in InnoDB.',
-                        'status'         => DefectStatus::OPENED->value,
-                        'fixdesc'        => 'Migrated schema to MySQL 8 InnoDB DECIMAL columns.',
-                        'fixstarted'     => '2004-04-20',
-                        'fixcomplete'    => null,
-                        'fiximpact'      => 'schema.sql, form_deffix.php',
-                        'fixeffort'      => 6.50,
-                        'fixcost'        => 195.00,
-                        'resodesc'       => null,
-                        'resocomplete'   => null,
-                        'resoclosed'     => null,
-                        'costofdefect'   => 420.00,
-                        'actfound'       => 'schema review',
+                    'product_id'       => $productMap['DefMan 2004 Core'],
+                    'environment'      => 'Linux 2.4, Apache 1.3, PHP 4.3, MySQL 4.0',
+                    'reporter_user_id' => $sabrinaId,
+                    'guest_name'       => null,
+                    'guest_email'      => null,
+                    'reported_at'      => '2004-04-18 09:15:00',
+                    'title'            => 'Precision Loss in EUR Effort Multiplier',
+                    'description'      => 'Fractional effort hours get truncated when stored in smallint(6) fixeffort and fixcost columns.',
+                    'discovered_by'    => 'Julia',
+                    'person_type'      => PersonType::DEVELOPER->value,
+                    'occurred_on'      => '2004-04-18',
+                    'location'         => 'form_deffix.php',
+                    'initial_severity' => DefectSeverity::MAJOR->value,
+                    'initial_priority' => DefectPriority::MOST_URGENT->dbValue(),
+                    'additional_info'  => 'Affects IEEE cost reporting accuracy.',
+                    'analysis'         => [
+                        'developer_description'   => 'Integer truncation in legacy MyISAM schema causes rounding fault.',
+                        'classification_id'       => $classificationMap[IeeeFaultType::COMPUTATIONAL->value],
+                        'date_originated'         => '2004-04-10',
+                        'phases'                  => [OriginPhase::DESIGN->value],
+                        'activity_originated'     => 'Database schema definition',
+                        'deliverable'             => 'install/installdb.php',
+                        'what_to_do'              => 'Migrate fixeffort and fixcost to DECIMAL(8,2) / DECIMAL(10,2).',
+                        'assigned_on'             => '2004-04-19',
+                        'uniqueness'              => Uniqueness::NEW_DEFECT->dbValue(),
+                        'priority'                => DefectPriority::MOST_URGENT->dbValue(),
+                        'severity'                => DefectSeverity::MAJOR->value,
+                        'workaround'              => 'Round effort to nearest whole hour.',
+                        'proposed_fix'            => 'Alter table columns to DECIMAL in InnoDB.',
+                        'status'                  => DefectStatus::OPENED->value,
+                        'fix_description'         => 'Migrated schema to MySQL 8 InnoDB DECIMAL columns.',
+                        'fix_started_on'          => '2004-04-20',
+                        'fix_completed_on'        => null,
+                        'fix_impact'              => 'schema.sql, form_deffix.php',
+                        'fix_effort'              => 6.50,
+                        'fix_cost'                => 195.00,
+                        'resolution_description'  => null,
+                        'resolution_completed_on' => null,
+                        'resolution_closed_on'    => null,
+                        'cost_of_defect'          => 420.00,
+                        'activity_found'          => 'schema review',
                     ],
                 ],
                 [
-                    'Product'      => 'Katiska Auth Gateway 2.0',
-                    'product_id'   => $productMap['Katiska Auth Gateway 2.0'] ?? null,
-                    'Environment'  => 'Netscape 7.1 / Solaris X-Session',
-                    'CustomerID'   => $sabrinaId,
-                    'Who'          => 'sabrin',
-                    'Contactemail' => 'sabrina@hotmail.com',
-                    'Whenreported' => '2004-04-21 11:40',
-                    'Title'        => 'Subroutine Mismatch in Session Logout Redirect',
-                    'Description'  => 'Session state flag logged=1 remains active if user closes browser tab without hitting logout.php.',
-                    'Discoveredby' => 'Sabrina',
-                    'Persontype'   => PersonType::TESTER->value,
-                    'Occured'      => '2004-04-21',
-                    'Location'     => 'login.php / logout.php',
-                    'Severity'     => DefectSeverity::MINOR->value,
-                    'Priority'     => DefectPriority::AVERAGE->value,
-                    'Submitted'    => '2004-04-21',
-                    'Addinfo'      => 'User management shows stale Online badge.',
-                    'analysis'     => [
-                        'devdesc'        => 'Missing session expiration heartbeat in authentication interface.',
-                        'classification' => IeeeFaultType::INTERFACE->value,
-                        'dateoriginated' => '2004-04-12',
-                        'phase'          => implode(',', [OriginPhase::DESIGN->value, OriginPhase::IMPLEMENTATION->value]),
-                        'actoriginated'  => 'Session handling implementation',
-                        'deliverable'    => 'login.php, logout.php',
-                        'whattodo'       => 'Introduce expiring bearer sessions in user_sessions table.',
-                        'submitted'      => '2004-04-21',
-                        'assigned'       => '2004-04-22',
-                        'uniqueness'     => Uniqueness::NEW_DEFECT->value,
-                        'priority'       => DefectPriority::AVERAGE->analysisLabel(),
-                        'severity'       => DefectSeverity::MINOR->value,
-                        'workaround'     => 'Manually log out via menubar.',
-                        'proposedfix'    => 'Use token expiration and session TTL.',
-                        'status'         => DefectStatus::FIXED->value,
-                        'fixdesc'        => 'Implemented token TTL and automatic online presence check.',
-                        'fixstarted'     => '2004-04-23',
-                        'fixcomplete'    => '2004-04-24',
-                        'fiximpact'      => 'AuthController.php, user_sessions',
-                        'fixeffort'      => 4.00,
-                        'fixcost'        => 120.00,
-                        'resodesc'       => 'Awaiting final QA sign-off.',
-                        'resocomplete'   => null,
-                        'resoclosed'     => null,
-                        'costofdefect'   => 180.00,
-                        'actfound'       => 'integration testing',
+                    'product_id'       => $productMap['Katiska Auth Gateway 2.0'],
+                    'environment'      => 'Netscape 7.1 / Solaris X-Session',
+                    'reporter_user_id' => $sabrinaId,
+                    'guest_name'       => null,
+                    'guest_email'      => null,
+                    'reported_at'      => '2004-04-21 11:40:00',
+                    'title'            => 'Subroutine Mismatch in Session Logout Redirect',
+                    'description'      => 'Session state flag logged=1 remains active if user closes browser tab without hitting logout.php.',
+                    'discovered_by'    => 'Sabrina',
+                    'person_type'      => PersonType::TESTER->value,
+                    'occurred_on'      => '2004-04-21',
+                    'location'         => 'login.php / logout.php',
+                    'initial_severity' => DefectSeverity::MINOR->value,
+                    'initial_priority' => DefectPriority::AVERAGE->dbValue(),
+                    'additional_info'  => 'User management shows stale Online badge.',
+                    'analysis'         => [
+                        'developer_description'   => 'Missing session expiration heartbeat in authentication interface.',
+                        'classification_id'       => $classificationMap[IeeeFaultType::INTERFACE->value],
+                        'date_originated'         => '2004-04-12',
+                        'phases'                  => [OriginPhase::DESIGN->value, OriginPhase::IMPLEMENTATION->value],
+                        'activity_originated'     => 'Session handling implementation',
+                        'deliverable'             => 'login.php, logout.php',
+                        'what_to_do'              => 'Introduce expiring bearer sessions in user_sessions table.',
+                        'assigned_on'             => '2004-04-22',
+                        'uniqueness'              => Uniqueness::NEW_DEFECT->dbValue(),
+                        'priority'                => DefectPriority::AVERAGE->dbValue(),
+                        'severity'                => DefectSeverity::MINOR->value,
+                        'workaround'              => 'Manually log out via menubar.',
+                        'proposed_fix'            => 'Use token expiration and session TTL.',
+                        'status'                  => DefectStatus::FIXED->value,
+                        'fix_description'         => 'Implemented token TTL and automatic online presence check.',
+                        'fix_started_on'          => '2004-04-23',
+                        'fix_completed_on'        => '2004-04-24',
+                        'fix_impact'              => 'AuthController.php, user_sessions',
+                        'fix_effort'              => 4.00,
+                        'fix_cost'                => 120.00,
+                        'resolution_description'  => 'Awaiting final QA sign-off.',
+                        'resolution_completed_on' => null,
+                        'resolution_closed_on'    => null,
+                        'cost_of_defect'          => 180.00,
+                        'activity_found'          => 'integration testing',
                     ],
                 ],
             ];
 
-            $raportStmt = $this->pdo->prepare(
-                'INSERT INTO `raport`
-                 (`Product`, `product_id`, `Environment`, `CustomerID`, `Who`, `Contactemail`, `Whenreported`,
-                  `Title`, `Description`, `Discoveredby`, `Persontype`, `Occured`, `Location`,
-                  `Severity`, `Priority`, `Submitted`, `Addinfo`)
+            $reportStmt = $this->pdo->prepare(
+                'INSERT INTO `defect_reports`
+                 (`product_id`, `environment`, `reporter_user_id`, `guest_name`, `guest_email`, `reported_at`,
+                  `title`, `description`, `discovered_by`, `person_type`, `occurred_on`, `location`,
+                  `initial_severity`, `initial_priority`, `additional_info`)
                  VALUES
-                 (:Product, :product_id, :Environment, :CustomerID, :Who, :Contactemail, :Whenreported,
-                  :Title, :Description, :Discoveredby, :Persontype, :Occured, :Location,
-                  :Severity, :Priority, :Submitted, :Addinfo)'
+                 (:product_id, :environment, :reporter_user_id, :guest_name, :guest_email, :reported_at,
+                  :title, :description, :discovered_by, :person_type, :occurred_on, :location,
+                  :initial_severity, :initial_priority, :additional_info)'
             );
 
-            $analyseStmt = $this->pdo->prepare(
-                'INSERT INTO `analyse`
-                 (`id`, `devdesc`, `classification`, `dateoriginated`, `phase`, `actoriginated`,
-                  `deliverable`, `whattodo`, `submitted`, `assigned`, `uniqueness`, `priority`,
-                  `severity`, `workaround`, `proposedfix`, `status`, `fixdesc`, `fixstarted`,
-                  `fixcomplete`, `fiximpact`, `fixeffort`, `fixcost`, `resodesc`, `resocomplete`,
-                  `resoclosed`, `costofdefect`, `actfound`)
+            $analysisStmt = $this->pdo->prepare(
+                'INSERT INTO `defect_analyses`
+                 (`report_id`, `developer_description`, `classification_id`, `date_originated`,
+                  `activity_originated`, `deliverable`, `what_to_do`, `assigned_on`, `uniqueness`,
+                  `priority`, `severity`, `workaround`, `proposed_fix`, `status`, `fix_description`,
+                  `fix_started_on`, `fix_completed_on`, `fix_impact`, `fix_effort`, `fix_cost`,
+                  `resolution_description`, `resolution_completed_on`, `resolution_closed_on`,
+                  `cost_of_defect`, `activity_found`)
                  VALUES
-                 (:id, :devdesc, :classification, :dateoriginated, :phase, :actoriginated,
-                  :deliverable, :whattodo, :submitted, :assigned, :uniqueness, :priority,
-                  :severity, :workaround, :proposedfix, :status, :fixdesc, :fixstarted,
-                  :fixcomplete, :fiximpact, :fixeffort, :fixcost, :resodesc, :resocomplete,
-                  :resoclosed, :costofdefect, :actfound)'
+                 (:report_id, :developer_description, :classification_id, :date_originated,
+                  :activity_originated, :deliverable, :what_to_do, :assigned_on, :uniqueness,
+                  :priority, :severity, :workaround, :proposed_fix, :status, :fix_description,
+                  :fix_started_on, :fix_completed_on, :fix_impact, :fix_effort, :fix_cost,
+                  :resolution_description, :resolution_completed_on, :resolution_closed_on,
+                  :cost_of_defect, :activity_found)'
+            );
+
+            $analysisPhaseStmt = $this->pdo->prepare(
+                'INSERT IGNORE INTO `analysis_phases` (`report_id`, `phase_id`)
+                 VALUES (:report_id, :phase_id)'
             );
 
             foreach ($sampleDefects as $defect) {
                 $analysis = $defect['analysis'];
                 unset($defect['analysis']);
 
-                $raportStmt->execute([
-                    ':Product'      => $defect['Product'],
-                    ':product_id'   => $defect['product_id'],
-                    ':Environment'  => $defect['Environment'],
-                    ':CustomerID'   => $defect['CustomerID'],
-                    ':Who'          => $defect['Who'],
-                    ':Contactemail' => $defect['Contactemail'],
-                    ':Whenreported' => $defect['Whenreported'],
-                    ':Title'        => $defect['Title'],
-                    ':Description'  => $defect['Description'],
-                    ':Discoveredby' => $defect['Discoveredby'],
-                    ':Persontype'   => $defect['Persontype'],
-                    ':Occured'      => $defect['Occured'],
-                    ':Location'     => $defect['Location'],
-                    ':Severity'     => $defect['Severity'],
-                    ':Priority'     => $defect['Priority'],
-                    ':Submitted'    => $defect['Submitted'],
-                    ':Addinfo'      => $defect['Addinfo'],
+                $reportStmt->execute([
+                    ':product_id'       => $defect['product_id'],
+                    ':environment'      => $defect['environment'],
+                    ':reporter_user_id' => $defect['reporter_user_id'],
+                    ':guest_name'       => $defect['guest_name'],
+                    ':guest_email'      => $defect['guest_email'],
+                    ':reported_at'      => $defect['reported_at'],
+                    ':title'            => $defect['title'],
+                    ':description'      => $defect['description'],
+                    ':discovered_by'    => $defect['discovered_by'],
+                    ':person_type'      => $defect['person_type'],
+                    ':occurred_on'      => $defect['occurred_on'],
+                    ':location'         => $defect['location'],
+                    ':initial_severity' => $defect['initial_severity'],
+                    ':initial_priority' => $defect['initial_priority'],
+                    ':additional_info'  => $defect['additional_info'],
                 ]);
 
-                $defectId = (int) $this->pdo->lastInsertId();
+                $reportId = (int) $this->pdo->lastInsertId();
 
-                $analyseStmt->execute([
-                    ':id'             => $defectId,
-                    ':devdesc'        => $analysis['devdesc'],
-                    ':classification' => $analysis['classification'],
-                    ':dateoriginated' => $analysis['dateoriginated'],
-                    ':phase'          => $analysis['phase'],
-                    ':actoriginated'  => $analysis['actoriginated'],
-                    ':deliverable'    => $analysis['deliverable'],
-                    ':whattodo'       => $analysis['whattodo'],
-                    ':submitted'      => $analysis['submitted'],
-                    ':assigned'       => $analysis['assigned'],
-                    ':uniqueness'     => $analysis['uniqueness'],
-                    ':priority'       => $analysis['priority'],
-                    ':severity'       => $analysis['severity'],
-                    ':workaround'     => $analysis['workaround'],
-                    ':proposedfix'    => $analysis['proposedfix'],
-                    ':status'         => $analysis['status'],
-                    ':fixdesc'        => $analysis['fixdesc'],
-                    ':fixstarted'     => $analysis['fixstarted'],
-                    ':fixcomplete'    => $analysis['fixcomplete'],
-                    ':fiximpact'      => $analysis['fiximpact'],
-                    ':fixeffort'      => $analysis['fixeffort'],
-                    ':fixcost'        => $analysis['fixcost'],
-                    ':resodesc'       => $analysis['resodesc'],
-                    ':resocomplete'   => $analysis['resocomplete'],
-                    ':resoclosed'     => $analysis['resoclosed'],
-                    ':costofdefect'   => $analysis['costofdefect'],
-                    ':actfound'       => $analysis['actfound'],
+                $analysisStmt->execute([
+                    ':report_id'               => $reportId,
+                    ':developer_description'   => $analysis['developer_description'],
+                    ':classification_id'       => $analysis['classification_id'],
+                    ':date_originated'         => $analysis['date_originated'],
+                    ':activity_originated'     => $analysis['activity_originated'],
+                    ':deliverable'             => $analysis['deliverable'],
+                    ':what_to_do'              => $analysis['what_to_do'],
+                    ':assigned_on'             => $analysis['assigned_on'],
+                    ':uniqueness'              => $analysis['uniqueness'],
+                    ':priority'                => $analysis['priority'],
+                    ':severity'                => $analysis['severity'],
+                    ':workaround'              => $analysis['workaround'],
+                    ':proposed_fix'            => $analysis['proposed_fix'],
+                    ':status'                  => $analysis['status'],
+                    ':fix_description'         => $analysis['fix_description'],
+                    ':fix_started_on'          => $analysis['fix_started_on'],
+                    ':fix_completed_on'        => $analysis['fix_completed_on'],
+                    ':fix_impact'              => $analysis['fix_impact'],
+                    ':fix_effort'              => $analysis['fix_effort'],
+                    ':fix_cost'                => $analysis['fix_cost'],
+                    ':resolution_description'  => $analysis['resolution_description'],
+                    ':resolution_completed_on' => $analysis['resolution_completed_on'],
+                    ':resolution_closed_on'    => $analysis['resolution_closed_on'],
+                    ':cost_of_defect'          => $analysis['cost_of_defect'],
+                    ':activity_found'          => $analysis['activity_found'],
                 ]);
+
+                foreach ($analysis['phases'] as $phaseName) {
+                    if (isset($phaseMap[$phaseName])) {
+                        $analysisPhaseStmt->execute([
+                            ':report_id' => $reportId,
+                            ':phase_id'  => $phaseMap[$phaseName],
+                        ]);
+                    }
+                }
             }
 
             $this->pdo->commit();

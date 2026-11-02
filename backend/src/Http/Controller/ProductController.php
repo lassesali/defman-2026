@@ -6,6 +6,7 @@ namespace DefMan\Http\Controller;
 use DefMan\Domain\Enum\UserLevel;
 use DefMan\Http\Middleware\RbacMiddleware;
 use DefMan\Repository\ProductRepository;
+use RuntimeException;
 
 /**
  * Product Management Controller
@@ -60,7 +61,13 @@ final readonly class ProductController
     {
         $this->rbac->requireLevel(UserLevel::ADMIN);
 
-        $deletedName = $this->productRepository->delete($id);
+        try {
+            $deletedName = $this->productRepository->delete($id);
+        } catch (RuntimeException $e) {
+            http_response_code(409);
+            return ['error' => $e->getMessage()];
+        }
+
         if ($deletedName === null) {
             http_response_code(404);
             return ['error' => 'Product not found.'];
