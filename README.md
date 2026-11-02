@@ -199,3 +199,9 @@ DefMan tracks the full lifecycle of software bugs, from reporting to resolution 
 
 ## 🕰️ Historical Context
 Originally completed on April 14, 2004 (at the University of Kuopio, Finland) using PHP 4 (`mysql_*` functions and `<?` short tags), MySQL `MyISAM`, and HTML 4.01 `<table>` layouts, DefMan has been fully re-architected in 2026 into a modern PHP 8.3+ PDO REST API, MySQL 8 InnoDB schema, and React 19 + PixiJS v8 WebGPU frontend while preserving all original domain logic, RBAC levels, and IEEE (1992) fault classification workflows. The unmigrated 2004 version is preserved in the [`lassesali/defman-2004-archive`](https://github.com/lassesali/defman-2004-archive) repository.
+
+---
+
+## 📄 License
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+Copyright (c) 2026 Lasse Sali.
