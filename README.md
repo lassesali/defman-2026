@@ -3,7 +3,7 @@
 **Original Completion Date:** April 14, 2004  
 **Modernization Release:** 2026 (PHP 8.3+ REST API • MySQL 8 InnoDB • React 19 + TypeScript • PixiJS v8 WebGPU)
 
-Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contains the **2026 Modernized Architecture** of the historical 2004 DefMan bug and fault cost tracking system: a complete full-stack migration from the [original 2004 archival codebase (`defman-2004-archive`)](https://github.com/lassesali/defman-2004-archive) (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions) into a decoupled **PHP 8.3+ PDO REST API**, a **MySQL 8.0+ InnoDB Schema**, a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
+Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contains the **2026 Modernized Architecture** of the historical 2004 DefMan bug and fault cost tracking system: a complete full-stack migration from the [original 2004 archival codebase (`defman-2004-archive`)](https://github.com/lassesali/defman-2004-archive) (HTML 4.01 `<table>` layouts, `<?` short tags, `mysql_*` functions) into a decoupled **PHP 8.3+ PDO REST API**, a **Strict 3NF MySQL 8.0+ InnoDB Schema** (with zero-data-loss migration scripts and backward-compatibility views), a **React 19 (Vite + TypeScript) SPA**, and a **PixiJS v8 (WebGPU/WebGL2)** visual defect triage & IEEE (1992) fault cost analytics canvas.
 
 ---
 
@@ -47,12 +47,16 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
   * **Product Catalog Management** (`ProductManager.tsx` — Level 3/4) with inline editing and safety checks against deleting products with linked defect reports.
   * **User Management & Approval Queue** (`AdminUserApproval.tsx` — Level 4) with `applying_users` approval/rejection, role updates, online status indicators, and random 10-character password generator (`form_newuser.php` parity).
   * **Self-Service Profile & Password Settings** (`UserProfileSettings.tsx` — Level 2/3/4).
+* **Strict Third Normal Form (3NF) Database Architecture**:
+  * **10 Normalized InnoDB Tables** (`products`, `companies`, `users`, `user_sessions`, `password_resets`, `sdlc_phases`, `fault_classifications`, `defect_reports`, `defect_analyses`, `analysis_phases`) replacing the legacy 5-table schema (`product`, `users`, `user_sessions`, `raport`, `analyse`).
+  * **1NF, 2NF, and 3NF Compliance**: Resolves multi-valued comma-delimited SDLC phases into `sdlc_phases` + `analysis_phases` M:N junction table, converts string timestamps (`Whenreported`) to native `DATETIME`, extracts `companies`, `password_resets`, and `fault_classifications` lookup tables, removes denormalized product/reporter fields, enforces reporter identity via SQL `CHECK` constraint (`chk_defect_reports_reporter_identity`), and standardizes priority (`most_urgent`, `average`, `less_urgent`) and uniqueness (`new`, `duplicate`) enums.
+  * **Zero-Data-Loss Migration & Backward-Compatibility Views**: Includes transaction-wrapped idempotent migration (`database/02_migrate_data.sql`) and legacy SQL views (`product`, `raport`, `analyse` in `database/03_legacy_views.sql`).
 
 ---
 
 ## ⚡ Quick Start (Docker Compose — Recommended)
 
-Everything (MySQL 8.0+ schema + seed data, PHP 8.3 Apache REST API, and Vite React 19 + PixiJS v8 frontend) starts with a single command:
+Everything (MySQL 8.0+ 3NF schema + seed data, PHP 8.3 Apache REST API, and Vite React 19 + PixiJS v8 frontend) starts with a single command:
 
 ```bash
 docker compose up --build
@@ -63,11 +67,12 @@ docker compose up --build
 
 ### Local CLI Setup (Alternative)
 
-1. **Provision MySQL 8 Schema & Seed Data:**
+1. **Provision MySQL 8 3NF Schema & Seed Data:**
    ```bash
    mysql -u root -p opr0413 < database/schema.sql
    php backend/bin/seed.php
    ```
+   *(To migrate an existing legacy `product`/`raport`/`analyse` database in place without data loss, run `01_schema_3nf.sql`, `02_migrate_data.sql`, and `03_legacy_views.sql` in sequence.)*
 
 2. **Start the PHP 8.3+ REST API:**
    ```bash
@@ -94,6 +99,150 @@ docker compose up --build
 
 ---
 
+## 🗄️ Database Architecture (Strict 3NF Normalization)
+
+The database layer (`database/`) is normalized to **Third Normal Form (3NF)** across 10 core tables plus 3 backward-compatibility views:
+
+| 3NF Table / View | Purpose & Normalization Role |
+| :--- | :--- |
+| `products` | Normalized software product catalog (`SMALLINT UNSIGNED` PK, unique `name`). |
+| `companies` | Extracted 3NF organization lookup table referenced by `users.company_id`. |
+| `users` | User accounts with `company_id` FK; transient session and password reset attributes decoupled. |
+| `user_sessions` | Active authentication sessions (`token_hash` SHA-256) used to derive real-time online status. |
+| `password_resets` | Extracted 3NF password recovery token lifecycle table (`1:N` with `users`). |
+| `sdlc_phases` | Normalized SDLC phase lookup catalog (10 standard software lifecycle phases). |
+| `fault_classifications` | Normalized IEEE 1044-1992 fault classification lookup table (`code`, `description`). |
+| `defect_reports` | Core defect submissions (`INT UNSIGNED` PK, `product_id` FK, `reporter_user_id` FK or guest fields enforced via `CHECK` constraint, `reported_at` `DATETIME`, unified `initial_priority` enum). |
+| `defect_analyses` | 1:1 triage & cost lifecycle record (`report_id` PK/FK, `classification_id` FK, `duplicate_of_report_id` self-FK, unified `priority` and `uniqueness` enums, `DECIMAL` effort/cost metrics). |
+| `analysis_phases` | 1NF M:N junction table linking `defect_analyses` to `sdlc_phases` (`PK(report_id, phase_id)`). |
+| `product`, `raport`, `analyse` *(Views)* | Backward-compatibility SQL views reconstructing the exact legacy 2004 column names and formats (`JOIN` + `GROUP_CONCAT`). |
+
+### Entity-Relationship Diagram (3NF Schema)
+
+```mermaid
+erDiagram
+    companies ||--o{ users : "employs"
+    users ||--o{ user_sessions : "authenticates"
+    users ||--o{ password_resets : "requests"
+    users ||--o{ defect_reports : "reports"
+    products ||--|{ defect_reports : "categorizes"
+    defect_reports ||--o| defect_analyses : "undergoes"
+    defect_reports ||--o{ defect_analyses : "duplicated_by"
+    fault_classifications ||--o{ defect_analyses : "classifies"
+    defect_analyses ||--o{ analysis_phases : "originates_in"
+    sdlc_phases ||--o{ analysis_phases : "defines"
+
+    products {
+        SMALLINT_UNSIGNED id PK
+        VARCHAR_100 name UK
+        TIMESTAMP created_at
+    }
+
+    companies {
+        SMALLINT_UNSIGNED id PK
+        VARCHAR_100 name UK
+        TIMESTAMP created_at
+    }
+
+    users {
+        SMALLINT_UNSIGNED id PK
+        VARCHAR_64 login UK
+        VARCHAR_255 password
+        VARCHAR_255 email UK
+        TINYINT_UNSIGNED userlevel
+        SMALLINT_UNSIGNED company_id FK
+        VARCHAR_50 phone
+        VARCHAR_100 name
+        TINYINT_1 activate
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    user_sessions {
+        BIGINT_UNSIGNED id PK
+        SMALLINT_UNSIGNED user_id FK
+        CHAR_64 token_hash UK
+        VARCHAR_45 ip_address
+        VARCHAR_255 user_agent
+        DATETIME expires_at
+        TIMESTAMP created_at
+    }
+
+    password_resets {
+        INT_UNSIGNED id PK
+        SMALLINT_UNSIGNED user_id FK
+        CHAR_64 token_hash UK
+        DATETIME expires_at
+        TIMESTAMP created_at
+    }
+
+    sdlc_phases {
+        TINYINT_UNSIGNED id PK
+        VARCHAR_64 name UK
+    }
+
+    fault_classifications {
+        SMALLINT_UNSIGNED id PK
+        VARCHAR_100 code UK
+        VARCHAR_255 description
+    }
+
+    defect_reports {
+        INT_UNSIGNED id PK
+        SMALLINT_UNSIGNED product_id FK
+        SMALLINT_UNSIGNED reporter_user_id FK
+        VARCHAR_100 guest_name
+        VARCHAR_255 guest_email
+        DATETIME reported_at
+        TEXT environment
+        VARCHAR_255 title
+        TEXT description
+        VARCHAR_100 discovered_by
+        ENUM person_type
+        DATE occurred_on
+        VARCHAR_255 location
+        ENUM initial_severity
+        ENUM initial_priority
+        TEXT additional_info
+    }
+
+    defect_analyses {
+        INT_UNSIGNED report_id PK, FK
+        SMALLINT_UNSIGNED classification_id FK
+        INT_UNSIGNED duplicate_of_report_id FK
+        TEXT developer_description
+        DATE date_originated
+        TEXT activity_originated
+        VARCHAR_255 deliverable
+        TEXT recommended_action
+        DATE assigned_on
+        ENUM uniqueness
+        ENUM priority
+        ENUM severity
+        TEXT workaround
+        TEXT proposed_fix
+        ENUM status
+        TEXT fix_description
+        DATE fix_started_on
+        DATE fix_completed_on
+        TEXT fix_impact
+        DECIMAL_8_2 fix_effort_hours
+        DECIMAL_10_2 fix_cost
+        TEXT resolution_description
+        DATE resolution_completed_on
+        DATE resolution_closed_on
+        DECIMAL_10_2 cost_of_defect
+        TEXT activity_found
+    }
+
+    analysis_phases {
+        INT_UNSIGNED report_id PK, FK
+        TINYINT_UNSIGNED phase_id PK, FK
+    }
+```
+
+---
+
 ## 🚀 2026 Modernization Architecture
 
 ### Directory Structure
@@ -108,7 +257,12 @@ docker compose up --build
 │   ├── defman2026_screenshot4.jpg               # Role-Based User Management & Approval Queue
 │   └── defman2026_screenshot5.jpg               # Defect Analyzer Workbench
 ├── database/
-│   └── schema.sql                               # MySQL 8.0+ InnoDB DDL (utf8mb4_unicode_ci, Foreign Keys, Indexes)
+│   ├── schema.sql                               # Primary Docker initialization schema (3NF tables + legacy views)
+│   ├── 01_schema_3nf.sql                        # Target 3NF DDL (10 tables, FKs, CHECK constraints, indexes)
+│   ├── 02_migrate_data.sql                      # Transaction-wrapped zero-data-loss DML migration script
+│   ├── 03_legacy_views.sql                      # Backward-compatibility SQL views (`product`, `raport`, `analyse`)
+│   ├── 04_er_diagram.mmd                        # Mermaid ER diagram source (.mmd)
+│   └── 04_er_diagram.txt                        # Mermaid ER diagram text export (.txt)
 ├── backend/
 │   ├── Dockerfile                               # PHP 8.3 Apache container with PDO MySQL & rewrite routing
 │   ├── .dockerignore                            # Docker build context exclusions
@@ -120,17 +274,17 @@ docker compose up --build
 │   │   └── index.php                            # PHP 8.3 REST API Front Controller & Router
 │   └── src/
 │       ├── Database/
-│       │   └── DatabaseSeeder.php               # PDO Seeder (Admin/System, Analyzer, Customer & IEEE 1992 defects)
+│       │   └── DatabaseSeeder.php               # 3NF PDO Seeder (companies, users, products, phases, classifications, defects)
 │       ├── Domain/Enum/
 │       │   ├── IeeeFaultType.php                # Native PHP 8.3 Backed Enum for IEEE (1992) Fault Classifications
 │       │   └── DomainEnums.php                  # UserLevel, DefectSeverity, DefectPriority, DefectStatus, OriginPhase
 │       ├── Infrastructure/Database/
 │       │   └── Database.php                     # Strict-typed PDO Singleton (ERRMODE_EXCEPTION, prepared statements)
 │       ├── Repository/
-│       │   ├── UserRepository.php               # Argon2id auth, random_bytes(32) sessions & password recovery
-│       │   ├── ProductRepository.php            # Product catalog CRUD & defect counts
-│       │   ├── DefectRepository.php             # Multi-column sorting, filtering & deleted-user preservation
-│       │   └── AnalysisRepository.php           # IEEE 1992 triage, lead-time delta metrics, effort (h) & EUR cost
+│       │   ├── UserRepository.php               # 3NF users/companies/password_resets/user_sessions repository
+│       │   ├── ProductRepository.php            # 3NF products catalog CRUD & defect_reports counts
+│       │   ├── DefectRepository.php             # 3NF defect_reports repository with reporter identity fallback
+│       │   └── AnalysisRepository.php           # 3NF defect_analyses, fault_classifications & analysis_phases repository
 │       └── Http/
 │           ├── Middleware/
 │           │   └── RbacMiddleware.php           # Enforces Level 1 (Public) to Level 4 (Admin) RBAC
@@ -160,6 +314,9 @@ docker compose up --build
 │           ├── AdminUserApproval.tsx            # Level 4 Admin user management & pending applicant approval queue
 │           ├── ProductManager.tsx               # Level 4 Admin product catalog CRUD
 │           └── UserProfileSettings.tsx          # Password, email, and personal profile settings
+├── DefMan-2026-Database-Migration-Document.pdf  # 3NF Database Normalization & Migration Architecture (PDF)
+├── DefMan-2026-Database-Migration-Document.txt  # 3NF Database Normalization & Migration Architecture (TXT)
+├── DefMan-2026-ER-Diagram.txt                   # Exported 3NF Mermaid Entity-Relationship Diagram (TXT)
 ├── DefMan-2026-Implementation-Document.pdf      # Complete exported implementation reference (PDF)
 ├── DefMan-2026-Implementation-Document.txt      # Complete exported implementation reference (TXT)
 ├── LICENSE                                      # Project license
@@ -172,7 +329,7 @@ docker compose up --build
 
 | Legacy 2004 File(s) | Modernized 2026 Layer | Key Upgrades |
 | :--- | :--- | :--- |
-| `install/installdb.php`, `install-part1.php`, `install-part2.php` | `database/schema.sql` & `DatabaseSeeder.php` | `MyISAM` → `InnoDB`, `utf8mb4_unicode_ci`, Foreign Keys, `DECIMAL` cost columns, PDO Seeder |
+| `install/installdb.php`, `install-part1.php`, `install-part2.php` | `database/schema.sql`, `01_schema_3nf.sql`, `02_migrate_data.sql`, `03_legacy_views.sql` & `DatabaseSeeder.php` | `MyISAM` → Strict 3NF `InnoDB` (10 tables + 3 legacy views), `utf8mb4_unicode_ci`, Foreign Keys, `CHECK` constraints, `DECIMAL` cost columns, PDO Seeder |
 | `config.php`, `dbconnect.php`, `db.php` | `Database.php` & `*Repository.php` | Removed `<?` short tags & `mysql_*` calls; strict-typed PHP 8.3 PDO prepared statements |
 | `defecttype.txt`, `faulttypes.html` | `IeeeFaultType.php` & `types/defman.ts` | Native PHP 8.3 Backed Enum & TypeScript Enum with IEEE (1992) taxonomy & hex colors |
 | `login.php`, `logout.php`, `randompassword.php`, `form_lostpassword.php` | `AuthController.php` & `RbacMiddleware.php` | Plaintext passwords → `password_hash(..., PASSWORD_ARGON2ID)` & `random_bytes(32)` tokens |
