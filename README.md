@@ -7,6 +7,30 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 
 ---
 
+## 📸 Screenshots & Interface Gallery
+
+### 1. Interactive WebGPU Triage & IEEE (1992) Cost Canvas
+![Interactive WebGPU Triage & IEEE (1992) Cost Canvas](defman2026_screenshot1.jpg)
+*Figure 1: Hardware-accelerated PixiJS v8 (WebGPU) triage board displaying defects across lifecycle lanes (`OPEN`, `ANALYZING`, `FIXED`, `RESOLVED`). Node radius scales dynamically with total EUR defect cost, outer ring thickness reflects developer fix effort, and node color maps to its IEEE 1044-1992 fault classification. Hovering reveals real-time cost and effort breakdowns.*
+
+### 2. Analyzer Triage & Cost Queue
+![Analyzer Triage & Cost Queue](defman2026_screenshot2.jpg)
+*Figure 2: The Analyzer Queue (`form_queue.php` / `form_alist.php` modernization) featuring IEEE 1992 fault badges, lead-time delta metrics (`Sub -> Assg` and `Assg -> Reso`), and instant 14-mode sorting and filtering across severity, priority, and lifecycle status.*
+
+### 3. Multi-Column Defect Report Grid
+![Multi-Column Defect Report Grid](defman2026_screenshot3.jpg)
+*Figure 3: Comprehensive defect report overview (`form_list.php` modernization) with multi-dimensional filtering by severity, priority, status, and software product, alongside automated submission age calculation.*
+
+### 4. Role-Based User Management & Approval Queue
+![Role-Based User Management & Approval Queue](defman2026_screenshot4.jpg)
+*Figure 4: Level 4 Administrator dashboard for managing active accounts, toggling RBAC privilege tiers (Customer, Analyzer, Admin), monitoring Katiska session online presence, and provisioning new users with auto-generated credentials.*
+
+### 5. Defect Analyzer Workbench (IEEE 1044-1992 Classification)
+![Defect Analyzer Workbench](defman2026_screenshot5.jpg)
+*Figure 5: The two-stage Defect Analyzer Workbench (`form_analyze.php` & `form_deffix.php` / `form_defreso.php`) enabling root-cause SDLC phase tracking, IEEE 1992 fault classification with mutual-exclusion custom overrides, and precision EUR cost accounting.*
+
+---
+
 ## 🚀 2026 Modernization Architecture
 
 ### Directory Structure
