@@ -31,13 +31,76 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 
 ---
 
+## ✨ Key Features
+
+* **Full Legacy Workflow Parity (DefMan 2004 + Katiska 2004)**:
+  * **Public / Anonymous Defect Reporting** (`PublicReportForm.tsx`) & **Public Registration Application** (`form_apply.php` parity).
+  * **Customer Defect Reporting** (`CustomerReportForm.tsx` with auto-prefilled reporter contact info).
+  * **Multi-Column Defect Report Grid** (`DefectReportGrid.tsx`) with combined filter dropdowns (Severity, Priority, Status, Product, Sort) and full-detail modal views (`DefectDetailModal.tsx`).
+  * **Analyzer Triage & Cost Queue** (`AnalyzerQueue.tsx`) with **14-option combined Sort/Filter selector**, lead-time delta metrics (`Sub -> Assg`, `Assg -> Reso`), and toggleable **Full Lead-Time Metrics** view (`form_alist.php` parity).
+  * **Two-Tab Defect Analyzer Workbench** (`DefectAnalyzerWorkbench.tsx` + `DefectResolutionForm.tsx`):
+    * **Tab 1 (`form_analyze.php`)**: IEEE 1044-1992 fault classification with mutual-exclusion custom classification override, SDLC phase checkboxes, origination/submission/assignment dates, deliverable/activity tracking, and built-in **IEEE 1992 Fault Reference Modal (`faulttypes.html`)**.
+    * **Tab 2 (`form_deffix.php` + `form_defreso.php`)**: Fix effort hours (`DECIMAL(8,2)`), fix cost (`EUR`), total cost of defect (`EUR`), resolution status (`fixed`, `resolved`, `closed`, `postponed`), and audit attribution.
+  * **Interactive PixiJS v8 WebGPU Triage Canvas** (`DefectTriageCanvas.tsx`):
+    * Drag-and-drop nodes across **Open -> Analyzing -> Fixed -> Resolved** swimlanes to trigger live `PUT /api/defects/{id}/resolve` updates.
+    * Visualizes **Total Cost of Defect (EUR)** via node radius, **Fix Effort (Hours)** via outer ring stroke, and **IEEE (1992) Fault Classification** via color-coded nodes.
+  * **Product Catalog Management** (`ProductManager.tsx` — Level 3/4) with inline editing and safety checks against deleting products with linked defect reports.
+  * **User Management & Approval Queue** (`AdminUserApproval.tsx` — Level 4) with `applying_users` approval/rejection, role updates, online status indicators, and random 10-character password generator (`form_newuser.php` parity).
+  * **Self-Service Profile & Password Settings** (`UserProfileSettings.tsx` — Level 2/3/4).
+
+---
+
+## ⚡ Quick Start (Docker Compose — Recommended)
+
+Everything (MySQL 8.0+ schema + seed data, PHP 8.3 Apache REST API, and Vite React 19 + PixiJS v8 frontend) starts with a single command:
+
+```bash
+docker compose up --build
+```
+
+* **Frontend UI**: [http://localhost:5173](http://localhost:5173)
+* **Backend REST API**: [http://localhost:8080/api](http://localhost:8080/api)
+
+### Local CLI Setup (Alternative)
+
+1. **Provision MySQL 8 Schema & Seed Data:**
+   ```bash
+   mysql -u root -p opr0413 < database/schema.sql
+   php backend/bin/seed.php
+   ```
+
+2. **Start the PHP 8.3+ REST API:**
+   ```bash
+   php -S localhost:8080 -t backend/public
+   ```
+
+3. **Start the React 19 + PixiJS v8 WebGPU SPA:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+---
+
+## 🔐 Seeded Test Accounts (`DatabaseSeeder.php`)
+
+| Role (RBAC Level) | Username | Email | Default Password |
+| :--- | :--- | :--- | :--- |
+| **Admin (Level 4)** | `zuck` | `zuckerberg@fb.com` | `Admin#2026!Zuck` |
+| **Admin / System (Level 4)** | `billg` | `billg@microsoft.com` | `System#2026!Bill` |
+| **Analyzer (Level 3)** | `julia` | `julia@hotmail.com` | `Analyze#2026!Julia` |
+| **Customer (Level 2)** | `sabrin` | `sabrina@hotmail.com` | `Cust#2026!Sabrina` |
+
+---
+
 ## 🚀 2026 Modernization Architecture
 
 ### Directory Structure
 
 ```text
 .
-├── docker-compose.yml                           # Docker Compose orchestration (MySQL 8.0 + PHP 8.3 Apache Backend)
+├── docker-compose.yml                           # Docker Compose orchestration (MySQL 8 + PHP 8.3 API + Vite React 19)
 ├── database/
 │   └── schema.sql                               # MySQL 8.0+ InnoDB DDL (utf8mb4_unicode_ci, Foreign Keys, Indexes)
 ├── backend/
@@ -71,6 +134,10 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 │               ├── DefectController.php         # Public/Customer Reporting, Analyzer Queue, Triage & Resolution
 │               └── ProductController.php        # Product Management CRUD
 ├── frontend/
+│   ├── Dockerfile                               # Node 22 Vite + React 19 + PixiJS v8 frontend container
+│   ├── .dockerignore                            # Frontend Docker build exclusions
+│   ├── package.json                             # React 19, PixiJS v8, Tailwind CSS v4 & Vite dependencies
+│   ├── vite.config.ts                           # Vite server configuration (port 5173)
 │   └── src/
 │       ├── types/defman.ts                      # TypeScript Enums (IeeeFaultType, UserLevel, etc.) & DTOs
 │       ├── api/client.ts                        # Typed Fetch REST Client with Bearer Token Auth
@@ -114,86 +181,6 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 | `form_productdetails.php` | `<ProductManager />` (`GET/POST/DELETE /api/admin/products`) | Admin product catalog CRUD with report counts |
 | `form_userdetails.php` | `<UserProfileSettings />` (`GET/PUT /api/users/me`) | Self-service password, email, and personal settings |
 | *New in 2026* | `<DefectTriageCanvas />` (PixiJS v8 WebGPU) | 2D interactive defect & cost canvas with drag-and-drop lane triage |
-
----
-
-### 🎨 PixiJS v8 (WebGPU/WebGL) Visual Defect & Cost Canvas
-`<DefectTriageCanvas />` (`frontend/src/components/DefectTriageCanvas.tsx`) initializes a hardware-accelerated PixiJS v8 surface (`await app.init({ preference: 'webgpu', antialias: true })`):
-- **IEEE (1992) Fault Type Color Coding:** Nodes are color-coded across all 10 IEEE fault classifications (`Logic`, `Computational`, `Interface`, `Data handling`, `Data`, `Documentation`, `Document quality`, `Enhancement`, `Caused by a prev. Fix`, `Other`).
-- **Severity & Priority Outer Glow Ring:** Critical and most-urgent defects render high-visibility outer rings.
-- **Effort & Cost Radius Scaling:** Node radius scales proportionally to **Fix Effort (Hours)** and **Monetary Cost (€ EUR)**.
-- **Interactive Lane Triage:** Supports viewport pan/zoom, hover telemetry tooltips, clicking any node to launch `<DefectAnalyzerWorkbench />`, and dragging nodes across `OPEN` → `ANALYZING` → `FIXED` → `RESOLVED` lanes to trigger `PUT /api/defects/{id}/resolve`.
-
----
-
-### 🔐 Seeded Test Accounts (`DatabaseSeeder.php`)
-
-| Role (RBAC Level) | Username | Email | Default Password |
-| :--- | :--- | :--- | :--- |
-| **Admin (Level 4)** | `zuck` | `zuckerberg@fb.com` | `Admin#2026!Zuck` |
-| **Admin / System (Level 4)** | `billg` | `billg@microsoft.com` | `System#2026!Bill` |
-| **Analyzer (Level 3)** | `julia` | `julia@hotmail.com` | `Analyze#2026!Julia` |
-| **Customer (Level 2)** | `sabrin` | `sabrina@hotmail.com` | `Cust#2026!Sabrina` |
-
----
-
-### ⚡ Quick Start (2026 Stack)
-
-#### Option A: Docker (Backend + MySQL 8.0)
-
-1. **Build and start the MySQL 8.0 database and PHP 8.3 Backend API:**
-   ```bash
-   docker compose up --build -d
-   ```
-   - Automatically provisions `database/schema.sql` on first startup.
-   - Waits for database health and runs `backend/bin/seed.php --if-empty` to seed test accounts, products, and IEEE (1992) defects.
-   - Exposes the REST API at `http://localhost:8080`.
-
-2. **Build & run the backend image standalone (optional):**
-   ```bash
-   docker build -t defman-backend ./backend
-   docker run -p 8080:8080 \
-     -e DB_HOST=host.docker.internal \
-     -e DB_PORT=3306 \
-     -e DB_NAME=opr0413 \
-     -e DB_USER=opr0413 \
-     -e DB_PASS=d3fman13 \
-     defman-backend
-   ```
-
-#### Option B: Local CLI Setup
-
-1. **Provision MySQL 8 Schema & Seed Data:**
-   ```bash
-   mysql -u root -p opr0413 < database/schema.sql
-   php backend/bin/seed.php
-   ```
-
-2. **Start the PHP 8.3+ REST API:**
-   ```bash
-   php -S localhost:8080 -t backend/public
-   ```
-
-3. **Start the React 19 + PixiJS v8 WebGPU SPA:**
-   ```bash
-   cd frontend
-   npm install react react-dom pixi.js
-   npm run dev
-   ```
-
----
-
-## ✨ Features
-DefMan tracks the full lifecycle of software bugs, from reporting to resolution and cost analysis:
-
-* **Role-Based Access Control (RBAC):** Four distinct user levels:
-    * *Public (Level 1):* Can submit general bug reports.
-    * *Customer (Level 2):* Can log in and track their submitted issues.
-    * *Analyzer (Level 3):* Developers who analyze defects, propose fixes, and track resolution metrics.
-    * *Admin (Level 4):* Full system access, including user approval and product management.
-* **Defect Analysis & Fix Tracking:** Classifies bugs based on IEEE (1992) software fault types (Logic, Computational, Interface, etc.) and tracks fix effort (hours) and monetary cost (€ EUR).
-* **User Management:** Account registration, admin approval workflows, user profile settings, and password recovery.
-* **Custom Reporting:** Multi-column sorting and filtering of issues by priority, status, severity, and product.
 
 ---
 

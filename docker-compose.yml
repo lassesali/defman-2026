@@ -39,5 +39,18 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: defman-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+
 volumes:
   defman_db_data:
