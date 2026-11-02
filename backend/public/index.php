@@ -17,6 +17,8 @@ use DefMan\Repository\DefectRepository;
 use DefMan\Repository\ProductRepository;
 use DefMan\Repository\UserRepository;
 
+require_once __DIR__ . '/../src/Domain/Enum/DomainEnums.php';
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'DefMan\\';
     if (!str_starts_with($class, $prefix)) {

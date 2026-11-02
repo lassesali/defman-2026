@@ -13,10 +13,17 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 
 ```text
 .
+├── docker-compose.yml                           # Docker Compose orchestration (MySQL 8.0 + PHP 8.3 Apache Backend)
 ├── database/
 │   └── schema.sql                               # MySQL 8.0+ InnoDB DDL (utf8mb4_unicode_ci, Foreign Keys, Indexes)
 ├── backend/
+│   ├── Dockerfile                               # PHP 8.3 Apache container with PDO MySQL & rewrite routing
+│   ├── .dockerignore                            # Docker build context exclusions
+│   ├── docker-entrypoint.sh                     # Container entrypoint (waits for DB readiness & auto-seeds)
+│   ├── bin/
+│   │   └── seed.php                             # CLI Database Seeder runner (`--if-empty` idempotency support)
 │   ├── public/
+│   │   ├── .htaccess                            # Apache rewrite & Bearer Authorization header passthrough
 │   │   └── index.php                            # PHP 8.3 REST API Front Controller & Router
 │   └── src/
 │       ├── Database/
@@ -108,16 +115,34 @@ Welcome to **DefMan (Defect Manager) — 2026 Edition**! This repository contain
 
 ### ⚡ Quick Start (2026 Stack)
 
+#### Option A: Docker (Backend + MySQL 8.0)
+
+1. **Build and start the MySQL 8.0 database and PHP 8.3 Backend API:**
+   ```bash
+   docker compose up --build -d
+   ```
+   - Automatically provisions `database/schema.sql` on first startup.
+   - Waits for database health and runs `backend/bin/seed.php --if-empty` to seed test accounts, products, and IEEE (1992) defects.
+   - Exposes the REST API at `http://localhost:8080`.
+
+2. **Build & run the backend image standalone (optional):**
+   ```bash
+   docker build -t defman-backend ./backend
+   docker run -p 8080:8080 \
+     -e DB_HOST=host.docker.internal \
+     -e DB_PORT=3306 \
+     -e DB_NAME=opr0413 \
+     -e DB_USER=opr0413 \
+     -e DB_PASS=d3fman13 \
+     defman-backend
+   ```
+
+#### Option B: Local CLI Setup
+
 1. **Provision MySQL 8 Schema & Seed Data:**
    ```bash
    mysql -u root -p opr0413 < database/schema.sql
-   php -r '
-     require "backend/src/Infrastructure/Database/Database.php";
-     require "backend/src/Domain/Enum/IeeeFaultType.php";
-     require "backend/src/Domain/Enum/DomainEnums.php";
-     require "backend/src/Database/DatabaseSeeder.php";
-     (new DefMan\Database\DatabaseSeeder(DefMan\Infrastructure\Database\Database::getConnection()))->run();
-   '
+   php backend/bin/seed.php
    ```
 
 2. **Start the PHP 8.3+ REST API:**

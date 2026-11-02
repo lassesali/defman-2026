@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: defman-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_d3fman13}
+      MYSQL_DATABASE: ${DB_NAME:-opr0413}
+      MYSQL_USER: ${DB_USER:-opr0413}
+      MYSQL_PASSWORD: ${DB_PASS:-d3fman13}
+    ports:
+      - "${DB_EXPOSE_PORT:-3307}:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - defman_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER:-opr0413}", "-p${DB_PASS:-d3fman13}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: defman-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-opr0413}
+      DB_USER: ${DB_USER:-opr0413}
+      DB_PASS: ${DB_PASS:-d3fman13}
+      WAIT_FOR_DB: "true"
+      AUTO_SEED: "true"
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+volumes:
+  defman_db_data:
